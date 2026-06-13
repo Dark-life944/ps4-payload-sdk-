@@ -74,7 +74,8 @@ int _main(struct thread *td)
 
     initKernel();
     initLibc();
-
+    initPthread();
+    initNetwork();
     jailbreak();
     initSysUtil();
 
