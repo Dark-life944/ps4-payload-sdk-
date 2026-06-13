@@ -30,7 +30,7 @@ void* thread_delete(void* arg) {
             printf_debug("thread_delete deleting\n");
 
             namedobj_delete(h, 0x107);
-            namedobj_delete(h, 0x107);
+            namedobj_delete(h, 0x101);
 
             printf_debug("thread_delete deleted\n");
         }
@@ -55,6 +55,7 @@ void* thread_create(void* arg) {
 
         if (fd < 0) continue;
 
+        int h = namedobj_create("poc", fd, 0x107);
         int h = namedobj_create("poc", fd, 0x107);
 
         printf_debug("handle=%d\n", h);
