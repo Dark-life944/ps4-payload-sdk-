@@ -56,7 +56,7 @@ int _main(struct thread *td)
 
     ScePthread tA, tB;
 
-    printf_("=== namedobj race PoC ===\n");
+    printf_debug("=== namedobj race ===\n");
 
     scePthreadCreate(&tA, NULL, thread_delete, NULL, "del");
     scePthreadCreate(&tB, NULL, thread_create, NULL, "cre");
@@ -66,6 +66,8 @@ int _main(struct thread *td)
 
     scePthreadJoin(tA, NULL);
     scePthreadJoin(tB, NULL);
+
+    printf_debug("=== namedobj Done ===\n");
 
     return 0;
 }
