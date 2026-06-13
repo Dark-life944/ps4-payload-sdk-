@@ -11,7 +11,6 @@ int _main(struct thread *td)
     initLibc();
 
     jailbreak();
-
     initSysUtil();
 
     SceKernelEqueue eq;
