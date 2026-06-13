@@ -30,7 +30,7 @@ void* thread_delete(void* arg) {
             printf_debug("thread_delete deleting\n");
 
             namedobj_delete(h, 0x107);
-            namedobj_delete(h1, 0x101);
+            namedobj_delete(h, 0x101);
 
             printf_debug("thread_delete deleted\n");
         }
