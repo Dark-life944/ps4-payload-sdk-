@@ -25,12 +25,13 @@ void* thread_delete(void* arg) {
             printf_debug("thread_delete saw handle\n");
 
             int h    = g_handle;
+            int h1   = g_handle;
             g_handle = -1;
 
             printf_debug("thread_delete deleting\n");
 
             namedobj_delete(h, 0x107);
-            namedobj_delete(h, 0x101);
+            namedobj_delete(h1, 0x101);
 
             printf_debug("thread_delete deleted\n");
         }
@@ -62,6 +63,7 @@ void* thread_create(void* arg) {
 
         if (h != -1) {
             g_handle = h;
+            h1 = g_handle;
             printf_debug("handle stored\n");
         }
     }
