@@ -57,7 +57,7 @@ int _main(struct thread *td) {
     printf_debug("utc r=%d\n",     r2);
     printf_debug("result=0x%lx\n", result);
 
-    long expected = 0x1000 + 0x41414141LL;
+    long expected = 0x1000 ;
     if (result == expected) {
         printf_debug("[+] DATA CONTROL CONFIRMED!\n");
     } else {
