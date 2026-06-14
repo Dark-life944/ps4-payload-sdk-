@@ -50,7 +50,7 @@ void* thread_create(void* arg) {
     while (g_running) {
         // استخدم syscall مباشرة بدون wrapper
         // data = 0 مقبول للاختبار
-        int h = namedobj_create("poc_uaf", 0, 0x101);
+        int h = namedobj_create("poc_uaf", 0, 0x107);
         
         printf_debug("C: create h=0x%x\n", h);
         
