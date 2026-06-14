@@ -91,10 +91,10 @@ int _main(struct thread *td) {
     scePthreadJoin(tB, NULL);
 
     printf_debug("Total hits: %d\n", g_hits);
-    if (g_hits > 0)
+    if (g_hits > 0) {
         printf_debug("[+] VULNERABLE!\n");
-    else
+    } else {
         printf_debug("[-] No hits\n");
-
+    }
     return 0;
 }
