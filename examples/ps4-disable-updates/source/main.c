@@ -89,7 +89,7 @@ int _main(struct thread *td) {
     scePthreadCreate(&tA, NULL, thread_delete_a,  NULL, "deleter_a");
     scePthreadCreate(&tB, NULL, thread_delete_b,  NULL, "deleter_b");
 
-    sceKernelSleep(30);
+    //sceKernelSleep(30);
     g_running = 0;
 
     scePthreadJoin(tA, NULL);
