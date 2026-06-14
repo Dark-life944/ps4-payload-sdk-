@@ -57,6 +57,9 @@ int (*sceKernelGetSystemSwVersion)(SceFwInfo *fw_info);
 
 int (*sceKernelSetTimezoneInfo)(void *data, uint32_t count);
 
+int (*sceKernelConvertUtcToLocaltime)(long utc, long *out_local, long *out_tz, int *out_dst);
+
+
 uint32_t (*sceKernelGetCpuTemperature)(uint32_t *);
 
 SYSCALL(kill, 37);
@@ -128,6 +131,8 @@ void initKernel(void) {
   RESOLVE(libKernelHandle, sceKernelGetSystemSwVersion);
 
   RESOLVE(libKernelHandle, sceKernelSetTimezoneInfo);
+
+  RESOLVE(libKernelHandle, sceKernelConvertUtcToLocaltime);
 
   RESOLVE(libKernelHandle, sceKernelGetCpuTemperature);
 }
