@@ -1,4 +1,4 @@
-*/
+/*
 #include "ps4.h"
 
 int _main(struct thread *td) {
