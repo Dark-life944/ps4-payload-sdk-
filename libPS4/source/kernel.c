@@ -55,6 +55,8 @@ int (*sceKernelSendNotificationRequest)(int device, SceNotificationRequest *req,
 const char *(*sceKernelGetFsSandboxRandomWord)();
 int (*sceKernelGetSystemSwVersion)(SceFwInfo *fw_info);
 
+int (*sceKernelSetTimezoneInfo)(void *data, uint32_t count);
+
 uint32_t (*sceKernelGetCpuTemperature)(uint32_t *);
 
 SYSCALL(kill, 37);
@@ -124,6 +126,8 @@ void initKernel(void) {
   RESOLVE(libKernelHandle, sceKernelSendNotificationRequest);
   RESOLVE(libKernelHandle, sceKernelGetFsSandboxRandomWord);
   RESOLVE(libKernelHandle, sceKernelGetSystemSwVersion);
+
+  RESOLVE(libKernelHandle, sceKernelSetTimezoneInfo);
 
   RESOLVE(libKernelHandle, sceKernelGetCpuTemperature);
 }
