@@ -54,7 +54,7 @@ void* thread_create(void* arg) {
         int h = namedobj_create("poc_uaf", 0, NAMEDOBJ_FLAGS);
 
         if (h <= 0) {
-            sceKernelUsleep(100);
+            //sceKernelUsleep(100);
             continue;
         }
 
@@ -65,7 +65,7 @@ void* thread_create(void* arg) {
         g_handle = h;
 
         // sleep قصير فقط لإعطاء thread_A فرصة
-        sceKernelUsleep(10);
+        //sceKernelUsleep(10);
     }
     return NULL;
 }
