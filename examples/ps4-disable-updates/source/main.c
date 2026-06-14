@@ -9,7 +9,6 @@ int _main(struct thread *td) {
     jailbreak();
     initSysUtil();
 
-
     printf_debug("=== timezone data control PoC ===\n");
 
     // [1] اكتب timezone table
@@ -27,18 +26,18 @@ int _main(struct thread *td) {
     int r = sceKernelSetTimezoneInfo(data, 2);
     printf_debug("set_timezone r=%d\n", r);
 
-    // [2] اكتب tz_minuteswest و tz_dsttime عبر settimeofday
+    // [2] settimeofday
     struct {
-        int tz_minuteswest;  // offset 0
-        int tz_dsttime;      // offset 4
+        int tz_minuteswest;
+        int tz_dsttime;
     } tz = {
         .tz_minuteswest = 0x1111,
         .tz_dsttime     = 0x2222,
     };
 
     struct {
-        void* tv_ptr;  // NULL = لا نغير الوقت
-        void* tz_ptr;  // timezone struct
+        void* tv_ptr;
+        void* tz_ptr;
     } sod_args = {
         .tv_ptr = NULL,
         .tz_ptr = &tz,
@@ -65,8 +64,10 @@ int _main(struct thread *td) {
     printf_debug("out_tz[1]=0x%lx\n", out_tz[1]);
     printf_debug("out_dst  =0x%x\n",  out_dst);
 
-    // النتيجة = (0x1111 + 0x2222) * 60 + 0x1000
-    long expected = ((long)0x1111 + 0x2222) * 0x3c + 0x1000;
+    // binary search اختار entry[1] لأن timestamp=0x1000 > entry[0].timestamp=0
+    // إذن offset = entry[1].offset = 0x3333
+    // out_local = entry[1].offset + timestamp = 0x3333 + 0x1000
+    long expected = 0x3333L + 0x1000L;
     printf_debug("expected =0x%lx\n", expected);
 
     if (out_local == expected) {
