@@ -1,4 +1,4 @@
-/*
+
 #include "ps4.h"
 
 int _main(struct thread *td) {
@@ -32,8 +32,8 @@ int _main(struct thread *td) {
         int tz_minuteswest;
         int tz_dsttime;
     } tz = {
-        .tz_minuteswest = 0x1111,
-        .tz_dsttime     = 0x2222,
+        .tz_minuteswest = 0x5555,
+        .tz_dsttime     = 0x6666,
     };
 
     struct {
@@ -79,7 +79,8 @@ int _main(struct thread *td) {
 
     return 0;
 }
-*/
+
+/*
 
 #include "ps4.h"
 
@@ -112,3 +113,4 @@ int _main(struct thread *td) {
 
     return 0;
 }
+*/
