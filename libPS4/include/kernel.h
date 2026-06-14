@@ -88,6 +88,8 @@ extern int (*sceKernelGetSystemSwVersion)(SceFwInfo *fw_info);
 
 extern int (*sceKernelSetTimezoneInfo)(void *data, uint32_t count);
 
+extern int (*sceKernelConvertUtcToLocaltime)(long utc, long *out_local, long *out_tz, int *out_dst);
+
 extern uint32_t (*sceKernelGetCpuTemperature)(uint32_t *);
 
 int kill(int pid, int signum);
