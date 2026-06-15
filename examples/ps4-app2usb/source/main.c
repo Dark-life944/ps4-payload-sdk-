@@ -86,7 +86,7 @@ int _main(struct thread *td) {
 
     scePthreadCreate(&tA, NULL, thread_bind,       NULL, "binder");
     scePthreadCreate(&tB, NULL, thread_close_open, NULL, "closer");
-    scePthreadCreate(&tC, NULL, thread_spray,      NULL, "sprayer");
+    //scePthreadCreate(&tC, NULL, thread_spray,      NULL, "sprayer");
 
     int seconds = 0;
     while (seconds < 30 && g_running) {
@@ -101,7 +101,7 @@ int _main(struct thread *td) {
 
     scePthreadJoin(tA, NULL);
     scePthreadJoin(tB, NULL);
-    scePthreadJoin(tC, NULL);
+    //scePthreadJoin(tC, NULL);
 
     printf_debug("\n=== Results ===\n");
     printf_debug("fd reuse hits: %d\n", g_hits);
