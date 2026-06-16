@@ -32,7 +32,7 @@ int _main(struct thread *td) {
     if (victim > 0) {
         printf_debug("[+] socket created!\n");
         int r2 = sceNetSocketClose(victim);
-printf_debug("victim close r=%d\n", r2);
-
+        printf_debug("victim close r=%d\n", r2);
+    }
     return 0;
 }
