@@ -14,7 +14,7 @@ int _main(struct thread *td) {
 
     // name بطول 0x20 بدون null terminator
     // copyinstr يكتب 0x21 bytes
-    char name[0x21];
+    char name[0x8];
     memset(name, 0x41, 0x19);  // 'A' * 32
     // لا نضع null! → copyinstr يقرأ byte إضافية
 
