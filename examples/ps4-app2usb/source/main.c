@@ -1,14 +1,9 @@
 #include <ps4.h>
 
-#define O_RDWR 2
-
-#define BIOCSBLEN _IOW('B', 102, unsigned int)
-#define BIOCSETIF _IOW('B', 108, struct ifreq)
-#define BIOCIMMEDIATE _IOW('B', 112, unsigned int)
-#define BIOCGHDRLEN _IOR('B', 105, unsigned int)
-
-#define ntohs sceNetNtohs
-#define htons sceNetHtons
+#define PS4_BIOCSBLEN    0x80044266
+#define PS4_BIOCSETIF    0x8010426c
+#define PS4_BIOCIMMEDIATE 0x80044270
+#define PS4_BIOCGHDRLEN  0x40044269
 
 struct ifreq {
     char ifr_name[16];
@@ -34,16 +29,16 @@ int init_bpf(void) {
     }
     if (fd < 0) return -1;
 
-    ioctl(fd, BIOCSBLEN, &buf_size);
+    ioctl(fd, PS4_BIOCSBLEN, &buf_size);
 
     memset(&ifr, 0, sizeof(ifr));
     memcpy(ifr.ifr_name, "ae0", 3); 
-    if (ioctl(fd, BIOCSETIF, &ifr) < 0) {
+    if (ioctl(fd, PS4_BIOCSETIF, &ifr) < 0) {
         close(fd);
         return -1;
     }
 
-    ioctl(fd, BIOCIMMEDIATE, &len);
+    ioctl(fd, PS4_BIOCIMMEDIATE, &len);
     return fd;
 }
 
@@ -65,7 +60,7 @@ int _main(struct thread *td) {
     }
 
     unsigned int bpf_hdr_len = 0;
-    if (ioctl(bpffd, BIOCGHDRLEN, &bpf_hdr_len) < 0) {
+    if (ioctl(bpffd, PS4_BIOCGHDRLEN, &bpf_hdr_len) < 0) {
         bpf_hdr_len = 18; 
     }
 
@@ -86,10 +81,10 @@ int _main(struct thread *td) {
         struct bpf_hdr *bh = (struct bpf_hdr *)read_buf;
         char *eth_packet = read_buf + bh->bh_hdrlen;
 
-        if(ntohs(*(unsigned short *)(eth_packet+12)) == 0x8863 && eth_packet[15] == 0x09 && ntohs(*(unsigned short *)(eth_packet+20)) == 0x0103) {
+        if(sceNetNtohs(*(unsigned short *)(eth_packet+12)) == 0x8863 && eth_packet[15] == 0x09 && sceNetNtohs(*(unsigned short *)(eth_packet+20)) == 0x0103) {
             memcpy(host_uniq, eth_packet+24, 8);
         }
-        if(ntohs(*(unsigned short *)(eth_packet+12)) == 0x8863 && eth_packet[15] == 0x09) {
+        if(sceNetNtohs(*(unsigned short *)(eth_packet+12)) == 0x8863 && eth_packet[15] == 0x09) {
             break;
         }
     }
@@ -99,15 +94,15 @@ int _main(struct thread *td) {
         memset(pado_buf, 0xff, sizeof(pado_buf));
         for(int i = 0; i < 6; i++) pado_buf[i] = 3;
         for(int i = 0; i < 6; i++) pado_buf[i+6] = i;
-        *(short*)(pado_buf+12) = htons(0x8863);
+        *(short*)(pado_buf+12) = sceNetHtons(0x8863);
         pado_buf[14] = 0x11; 
         pado_buf[15] = 0x07; 
-        *(short*)(pado_buf+16) = htons(0); 
-        *(short*)(pado_buf+18) = htons(sizeof(pado_buf)-14-6); 
-        *(short*)(pado_buf+20) = htons(0x0101); 
-        *(short*)(pado_buf+22) = htons(0); 
-        *(short*)(pado_buf+24) = htons(0x0103); 
-        *(short*)(pado_buf+26) = htons(8); 
+        *(short*)(pado_buf+16) = sceNetHtons(0); 
+        *(short*)(pado_buf+18) = sceNetHtons(sizeof(pado_buf)-14-6); 
+        *(short*)(pado_buf+20) = sceNetHtons(0x0101); 
+        *(short*)(pado_buf+22) = sceNetHtons(0); 
+        *(short*)(pado_buf+24) = sceNetHtons(0x0103); 
+        *(short*)(pado_buf+26) = sceNetHtons(8); 
         memcpy(pado_buf+28, host_uniq, 8);
 
         wr = write(bpffd, pado_buf, 28+8);
@@ -124,7 +119,7 @@ int _main(struct thread *td) {
         struct bpf_hdr *bh = (struct bpf_hdr *)read_buf;
         char *eth_packet = read_buf + bh->bh_hdrlen;
 
-        if(ntohs(*(unsigned short *)(eth_packet+12)) == 0x8863 && eth_packet[15] == 0x19) break;
+        if(sceNetNtohs(*(unsigned short *)(eth_packet+12)) == 0x8863 && eth_packet[15] == 0x19) break;
     }
 
     {
@@ -132,15 +127,15 @@ int _main(struct thread *td) {
         memset(pads_buf, 0xff, sizeof(pads_buf));
         for(int i = 0; i < 6; i++) pads_buf[i] = 3;
         for(int i = 0; i < 6; i++) pads_buf[i+6] = i;
-        *(short*)(pads_buf+12) = htons(0x8863);
+        *(short*)(pads_buf+12) = sceNetHtons(0x8863);
         pads_buf[14] = 0x11; 
         pads_buf[15] = 0x65; 
-        *(short*)(pads_buf+16) = htons(1); 
-        *(short*)(pads_buf+18) = htons(sizeof(pads_buf)-14-6); 
-        *(short*)(pads_buf+20) = htons(0x0101); 
-        *(short*)(pads_buf+22) = htons(0); 
-        *(short*)(pads_buf+24) = htons(0x0103); 
-        *(short*)(pads_buf+26) = htons(8); 
+        *(short*)(pads_buf+16) = sceNetHtons(1); 
+        *(short*)(pads_buf+18) = sceNetHtons(sizeof(pads_buf)-14-6); 
+        *(short*)(pads_buf+20) = sceNetHtons(0x0101); 
+        *(short*)(pads_buf+22) = sceNetHtons(0); 
+        *(short*)(pads_buf+24) = sceNetHtons(0x0103); 
+        *(short*)(pads_buf+26) = sceNetHtons(8); 
         memcpy(pads_buf+28, host_uniq, 8);
 
         wr = write(bpffd, pads_buf, sizeof(pads_buf));
@@ -148,7 +143,7 @@ int _main(struct thread *td) {
     }
 
     char buf1[1024];
-    int buf1len = -1;
+    unsigned int buf1len = 0;
     memset(buf1, 0, sizeof(buf1));
     while(1) {
         n = read(bpffd, read_buf, sizeof(read_buf));
@@ -159,9 +154,10 @@ int _main(struct thread *td) {
         }
         struct bpf_hdr *bh = (struct bpf_hdr *)read_buf;
         char *eth_packet = read_buf + bh->bh_hdrlen;
-        int packet_len = bh->bh_caplen;
+        unsigned int packet_len = bh->bh_caplen;
 
-        if(ntohs(*(unsigned short *)(eth_packet+12)) == 0x8864) {
+        if(sceNetNtohs(*(unsigned short *)(eth_packet+12)) == 0x8864) {
+            if (packet_len > sizeof(buf1)) packet_len = sizeof(buf1);
             memcpy(buf1, eth_packet, packet_len);
             buf1len = packet_len;
             break;
@@ -173,7 +169,7 @@ int _main(struct thread *td) {
         memset(ack_buf, 0xff, sizeof(ack_buf));
         for(int i = 0; i < 6; i++) ack_buf[i] = 3;
         for(int i = 0; i < 6; i++) ack_buf[i+6] = i;
-        *(short*)(ack_buf+12) = htons(0x8864);
+        *(short*)(ack_buf+12) = sceNetHtons(0x8864);
         
         if (buf1len <= sizeof(ack_buf)) {
             memcpy(ack_buf+14, buf1+14, buf1len-14);
@@ -188,7 +184,7 @@ int _main(struct thread *td) {
         memset(req_buf, 0xff, sizeof(req_buf));
         for(int i = 0; i < 6; i++) req_buf[i] = 3;
         for(int i = 0; i < 6; i++) req_buf[i+6] = i;
-        *(short*)(req_buf+12) = htons(0x8864);
+        *(short*)(req_buf+12) = sceNetHtons(0x8864);
         
         if(buf1len > sizeof(req_buf)) buf1len = sizeof(req_buf);
         memcpy(req_buf+14, buf1+14, buf1len-14);
@@ -208,7 +204,7 @@ int _main(struct thread *td) {
         struct bpf_hdr *bh = (struct bpf_hdr *)read_buf;
         char *eth_packet = read_buf + bh->bh_hdrlen;
 
-        if(ntohs(*(unsigned short *)(eth_packet+12)) == 0x8864 && eth_packet[22] == 2) {
+        if(sceNetNtohs(*(unsigned short *)(eth_packet+12)) == 0x8864 && eth_packet[22] == 2) {
             break;
         }
     }
@@ -218,19 +214,19 @@ int _main(struct thread *td) {
         memset(chap_buf, 0xff, sizeof(chap_buf));
         for(int i = 0; i < 6; i++) chap_buf[i] = 3;
         for(int i = 0; i < 6; i++) chap_buf[i+6] = i;
-        *(short*)(chap_buf+12) = htons(0x8864);
+        *(short*)(chap_buf+12) = sceNetHtons(0x8864);
         int ii = 14;
         chap_buf[ii++] = 0x11;
         chap_buf[ii++] = 0x00;
         chap_buf[ii++] = 0x00;
         chap_buf[ii++] = 0x01;
-        *(short *)(chap_buf+ii) = htons(sizeof(chap_buf) - 20); 
+        *(short *)(chap_buf+ii) = sceNetHtons(sizeof(chap_buf) - 20); 
         ii += 2;
         chap_buf[ii++] = 0xc2;
         chap_buf[ii++] = 0x23; 
         chap_buf[ii++] = 1;
         chap_buf[ii++] = 2;
-        *(short*)(chap_buf+ii) = htons(sizeof(chap_buf) - 22); 
+        *(short*)(chap_buf+ii) = sceNetHtons(sizeof(chap_buf) - 22); 
         
         wr = write(bpffd, chap_buf, sizeof(chap_buf));
         if(wr < 0) printf_debug("[!] write CHAP error\n");
