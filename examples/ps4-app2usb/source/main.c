@@ -2,6 +2,9 @@
 
 #define O_RDWR 2
 
+#define ntohs sceNetNtohs
+#define htons sceNetHtons
+
 int _main(struct thread *td) {
     UNUSED(td);
 
