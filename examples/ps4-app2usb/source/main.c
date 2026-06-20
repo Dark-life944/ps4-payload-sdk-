@@ -7,7 +7,7 @@ void test_overflow_on_all_devices(void) {
     
     // محاولة على أجهزة USB المختلفة
     const char *devices[] = {
-        "/dev/da0s1",
+        "/dev/da1",
         "/dev/da0s2",
         "/dev/da1s1",
         "/dev/da1s2",
