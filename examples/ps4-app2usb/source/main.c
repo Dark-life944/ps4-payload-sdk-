@@ -21,7 +21,7 @@ void test_overflow_on_all_devices(void) {
         int ret = mount_large_fs(devices[i], "/mnt/usb", "exfatfs", payload, 0);
         
         if (ret < 0) {
-            printf("Mount failed on %s\n", devices[i]);
+            printf_debug("Mount failed on %s\n", devices[i]);
         }
     }
 }
