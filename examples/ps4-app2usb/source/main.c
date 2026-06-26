@@ -97,7 +97,7 @@ int _main(struct thread *td)
 
 
 
-    sleep(1);
+      sceKernelSleep(1);
 
 
 
