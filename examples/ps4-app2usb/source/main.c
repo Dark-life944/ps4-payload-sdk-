@@ -7,7 +7,14 @@ struct pollfd {
 };
 
 
-extern int poll(struct pollfd *fds, unsigned long nfds, int timeout);
+int (*poll)(struct pollfd *fds, unsigned long nfds, int timeout);
+
+
+
+void initPoll()
+{
+    RESOLVE(libKernelHandle, poll);
+}
 
 
 
@@ -23,9 +30,8 @@ void *poll_thread(void *arg)
     struct pollfd pfd;
 
     pfd.fd = sock;
-    pfd.events = 1;   // POLLIN
+    pfd.events = 1;     // POLLIN
     pfd.revents = 0;
-
 
 
     printf_notification("Entering poll");
@@ -60,8 +66,13 @@ int _main(struct thread *td)
     initLibc();
     initPthread();
     initNetwork();
+
+    initPoll();
+
+
     jailbreak();
     initSysUtil();
+
 
 
     char socketName[] = "polltest";
@@ -86,7 +97,6 @@ int _main(struct thread *td)
     ScePthread thread;
 
 
-
     scePthreadCreate(
         &thread,
         NULL,
@@ -97,7 +107,7 @@ int _main(struct thread *td)
 
 
 
-      sceKernelSleep(1);
+    sceKernelSleep(1);
 
 
 
@@ -112,7 +122,6 @@ int _main(struct thread *td)
         thread,
         NULL
     );
-
 
 
     printf_debug("done");
