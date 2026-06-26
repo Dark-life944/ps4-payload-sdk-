@@ -21,111 +21,88 @@ void initPoll()
 static int sockfd;
 
 
-
 void *poll_thread(void *arg)
 {
     int sock = (int)(long)arg;
 
-
     struct pollfd pfd;
-
     pfd.fd = sock;
-    pfd.events = 1;     // POLLIN
+    pfd.events = POLLIN;
     pfd.revents = 0;
 
+    printf_notification("poll enter");
 
-    printf_notification("Entering poll");
+    int ret = poll(&pfd, 1, -1);
 
-
-    int ret = poll(
-        &pfd,
-        1,
-        -1
-    );
-
-
-    printf_debug(
-        "poll returned %d",
-        ret
-    );
-
-
-    scePthreadExit(NULL);
+    printf_debug("poll returned %d revents %x",
+                 ret,
+                 pfd.revents);
 
     return NULL;
 }
 
+
+void *close_thread(void *arg)
+{
+    int sock = (int)(long)arg;
+
+    sceKernelSleep(1);
+
+    printf_notification("closing");
+
+    sceNetSocketClose(sock);
+
+    return NULL;
+}
 
 
 int _main(struct thread *td)
 {
     UNUSED(td);
 
-
     initKernel();
     initLibc();
     initPthread();
     initNetwork();
-
     initPoll();
 
-
     jailbreak();
-    initSysUtil();
-
-
-
-    char socketName[] = "polltest";
-
 
     sockfd = sceNetSocket(
-        socketName,
+        "polltest",
         AF_INET,
         SOCK_STREAM,
         0
     );
 
 
-    if(sockfd < 0)
-    {
-        printf_debug("sceNetSocket failed");
-        return 0;
-    }
-
-
-
-    ScePthread thread;
+    ScePthread pollTh;
+    ScePthread closeTh;
 
 
     scePthreadCreate(
-        &thread,
+        &pollTh,
         NULL,
         poll_thread,
         (void *)(long)sockfd,
-        "poll_thread"
+        "poll"
     );
 
 
-
-    sceKernelSleep(1);
-
-
-
-    printf_debug("closing socket");
-
-
-    sceNetSocketClose(sockfd);
-
-
-
-    scePthreadJoin(
-        thread,
-        NULL
+    scePthreadCreate(
+        &closeTh,
+        NULL,
+        close_thread,
+        (void *)(long)sockfd,
+        "close"
     );
+
+
+    scePthreadJoin(closeTh,NULL);
+    scePthreadJoin(pollTh,NULL);
 
 
     printf_debug("done");
-
 
     return 0;
 }
