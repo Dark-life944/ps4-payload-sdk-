@@ -1,45 +1,122 @@
 #include "ps4.h"
 
-void test_overflow_on_all_devices(void) {
-    char payload[256];
-    memset(payload, 'A', 256);
-    payload[255] = '\0';
-    
-    // محاولة على أجهزة USB المختلفة
-    const char *devices[] = {
-        "/dev/da1",
-        "/dev/da0s2",
-        "/dev/da1s1",
-        "/dev/da1s2",
-        "/dev/da2s1",
-        NULL
-    };
-    
-    for (int i = 0; devices[i] != NULL; i++) {
-        printf_notification("Trying device: %s", devices[i]);
-        
-        int ret = mount_large_fs(devices[i], "/mnt/usb", "exfatfs", payload, 0);
-        
-        if (ret < 0) {
-            printf_debug("Mount failed on %s\n", devices[i]);
-        }
-    }
+struct pollfd {
+    int fd;
+    short events;
+    short revents;
+};
+
+
+extern int poll(struct pollfd *fds, unsigned long nfds, int timeout);
+
+
+
+static int sockfd;
+
+
+
+void *poll_thread(void *arg)
+{
+    int sock = (int)(long)arg;
+
+
+    struct pollfd pfd;
+
+    pfd.fd = sock;
+    pfd.events = 1;   // POLLIN
+    pfd.revents = 0;
+
+
+
+    printf_notification("Entering poll");
+
+
+    int ret = poll(
+        &pfd,
+        1,
+        -1
+    );
+
+
+    printf_debug(
+        "poll returned %d",
+        ret
+    );
+
+
+    scePthreadExit(NULL);
+
+    return NULL;
 }
 
-int _main(struct thread *td) {
+
+
+int _main(struct thread *td)
+{
     UNUSED(td);
-    
+
+
     initKernel();
     initLibc();
+    initPthread();
+    initNetwork();
     jailbreak();
-    mmap_patch();
     initSysUtil();
-    
-    printf_notification("Triggering overflow on USB devices...");
-    
-    test_overflow_on_all_devices();
-    
-    printf_notification("If you see this, the system did NOT crash");
-    
+
+
+    char socketName[] = "polltest";
+
+
+    sockfd = sceNetSocket(
+        socketName,
+        AF_INET,
+        SOCK_STREAM,
+        0
+    );
+
+
+    if(sockfd < 0)
+    {
+        printf_debug("sceNetSocket failed");
+        return 0;
+    }
+
+
+
+    ScePthread thread;
+
+
+
+    scePthreadCreate(
+        &thread,
+        NULL,
+        poll_thread,
+        (void *)(long)sockfd,
+        "poll_thread"
+    );
+
+
+
+    sleep(1);
+
+
+
+    printf_debug("closing socket");
+
+
+    sceNetSocketClose(sockfd);
+
+
+
+    scePthreadJoin(
+        thread,
+        NULL
+    );
+
+
+
+    printf_debug("done");
+
+
     return 0;
 }
